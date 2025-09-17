@@ -1,0 +1,39 @@
+# Zig build artifacts
+zig-out/
+zig-cache/
+
+# IDE files
+.vscode/
+.vs/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows specific
+*.exe
+*.pdb
+*.ilk
+
+# SDL2 runtime libraries (if copied locally)
+SDL2.dll
+SDL2d.dll
+
+# Log files
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# Temporary files
+*.tmp
+*.temp
