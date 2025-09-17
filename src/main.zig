@@ -3,6 +3,7 @@ const c = @cImport({
     @cInclude("SDL3/SDL.h");
 });
 const perf = @import("platform/perf.zig");
+const math3d = @import("math/mod.zig");
 
 const SCREEN_WIDTH = 800;
 const SCREEN_HEIGHT = 600;
@@ -104,16 +105,63 @@ fn clearFramebuffer(buffer: []u32, color: u32) void {
 }
 
 fn drawTestPattern(buffer: []u32, frame: u32) void {
-    for (0..SCREEN_HEIGHT) |y| {
-        for (0..SCREEN_WIDTH) |x| {
-            const index = y * SCREEN_WIDTH + x;
+    // Clear to black
+    for (buffer) |*pixel| {
+        pixel.* = 0x000000FF;
+    }
 
-            // Create a simple animated pattern
-            const r = @as(u8, @intCast((x + frame) & 0xFF));
-            const g = @as(u8, @intCast((y + frame) & 0xFF));
-            const b = @as(u8, @intCast(((x + y + frame) / 2) & 0xFF));
+    // Simple 3D test: rotating cube vertices
+    const cube_vertices = [_]math3d.Vec3{
+        math3d.Vec3.init(-1, -1, -1), math3d.Vec3.init(1, -1, -1),
+        math3d.Vec3.init(1, 1, -1),   math3d.Vec3.init(-1, 1, -1),
+        math3d.Vec3.init(-1, -1, 1),  math3d.Vec3.init(1, -1, 1),
+        math3d.Vec3.init(1, 1, 1),    math3d.Vec3.init(-1, 1, 1),
+    };
 
-            buffer[index] = (@as(u32, r) << 24) | (@as(u32, g) << 16) | (@as(u32, b) << 8) | 0xFF;
+    // Create transformation matrices
+    const time = @as(f32, @floatFromInt(frame)) * 0.02;
+    const rotation_y = math3d.Mat4.rotateY(time);
+    const rotation_x = math3d.Mat4.rotateX(time * 0.5);
+    const translation = math3d.Mat4.translate(math3d.Vec3.init(0, 0, -5));
+
+    // Combined transformation: translate then rotate
+    const model = translation.multiply(rotation_y.multiply(rotation_x));
+
+    // Basic perspective projection
+    const aspect = @as(f32, SCREEN_WIDTH) / @as(f32, SCREEN_HEIGHT);
+    const perspective = math3d.Mat4.perspective(math3d.degreesToRadians(60), aspect, 0.1, 100.0);
+
+    const mvp = perspective.multiply(model);
+
+    // Project and draw vertices
+    for (cube_vertices, 0..) |vertex, i| {
+        const projected = mvp.transformVec3(vertex);
+
+        // Convert from normalized device coordinates to screen space
+        const screen_x = @as(i32, @intFromFloat((projected.x + 1.0) * 0.5 * SCREEN_WIDTH));
+        const screen_y = @as(i32, @intFromFloat((1.0 - projected.y) * 0.5 * SCREEN_HEIGHT));
+
+        // Draw a small cross for each vertex
+        if (screen_x >= 2 and screen_x < SCREEN_WIDTH - 2 and
+            screen_y >= 2 and screen_y < SCREEN_HEIGHT - 2)
+        {
+            const colors = [_]u32{ 0xFF0000FF, 0x00FF00FF, 0x0000FFFF, 0xFFFF00FF, 0xFF00FFFF, 0x00FFFFFF, 0xFFFFFFFF, 0x808080FF };
+            const color = colors[i];
+
+            // Draw cross pattern (5x5)
+            for (0..5) |dy| {
+                for (0..5) |dx| {
+                    const px = screen_x - 2 + @as(i32, @intCast(dx));
+                    const py = screen_y - 2 + @as(i32, @intCast(dy));
+
+                    if (dx == 2 or dy == 2) { // Cross shape
+                        const idx = @as(usize, @intCast(py * SCREEN_WIDTH + px));
+                        if (idx < buffer.len) {
+                            buffer[idx] = color;
+                        }
+                    }
+                }
+            }
         }
     }
 }
