@@ -1,0 +1,24 @@
+{
+  "window": {
+    "width": 1920,
+    "height": 1080,
+    "title": "ZigRast - Software Renderer",
+    "resizable": true,
+    "vsync": true
+  },
+  "rendering": {
+    "clear_color": [
+      0,
+      17,
+      34
+    ],
+    "fov_degrees": 60.0,
+    "near_plane": 0.1,
+    "far_plane": 100.0
+  },
+  "performance": {
+    "show_overlay": true,
+    "target_fps": 60,
+    "enable_frame_cap": true
+  }
+}

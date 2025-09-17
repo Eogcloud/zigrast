@@ -3,21 +3,35 @@ const c = @cImport({
     @cInclude("SDL3/SDL.h");
 });
 const perf = @import("platform/perf.zig");
+const settings = @import("platform/settings.zig");
 const math3d = @import("math/mod.zig");
 const renderer = @import("renderer/mod.zig");
 
-const SCREEN_WIDTH = 800;
-const SCREEN_HEIGHT = 600;
-
 pub fn main() !void {
+    // Initialize allocator
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Load settings
+    const launch_settings = settings.LaunchSettings.loadFromFile(allocator, "launchSettings.json") catch |err| {
+        std.debug.panic("Failed to load settings: {s}\n", .{@errorName(err)});
+    };
+
+    std.debug.print("Starting ZigRast with settings:\n", .{});
+    std.debug.print("  Window: {d}x{d} ({})\n", .{ launch_settings.window.width, launch_settings.window.height, launch_settings.window.resizable });
+    std.debug.print("  FOV: {d:.1} degrees\n", .{launch_settings.rendering.fov_degrees});
+    std.debug.print("  Target FPS: {d}\n", .{launch_settings.performance.target_fps});
+
     // Initialize SDL
     if (!c.SDL_Init(c.SDL_INIT_VIDEO)) {
         std.debug.panic("SDL could not initialize! SDL_Error: {s}\n", .{c.SDL_GetError()});
     }
     defer c.SDL_Quit();
 
-    // Create window
-    const window = c.SDL_CreateWindow("ZigRast - Software Renderer", SCREEN_WIDTH, SCREEN_HEIGHT, c.SDL_WINDOW_RESIZABLE);
+    // Create window with settings
+    const window_flags = if (launch_settings.window.resizable) c.SDL_WINDOW_RESIZABLE else 0;
+    const window = c.SDL_CreateWindow(launch_settings.window.title.ptr, @as(i32, @intCast(launch_settings.window.width)), @as(i32, @intCast(launch_settings.window.height)), window_flags);
     if (window == null) {
         std.debug.panic("Window could not be created! SDL_Error: {s}\n", .{c.SDL_GetError()});
     }
@@ -31,20 +45,20 @@ pub fn main() !void {
     defer c.SDL_DestroyRenderer(sdl_renderer);
 
     // Create framebuffer texture
-    const texture = c.SDL_CreateTexture(sdl_renderer, c.SDL_PIXELFORMAT_RGBA8888, c.SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+    const texture = c.SDL_CreateTexture(sdl_renderer, c.SDL_PIXELFORMAT_RGBA8888, c.SDL_TEXTUREACCESS_STREAMING, @as(i32, @intCast(launch_settings.window.width)), @as(i32, @intCast(launch_settings.window.height)));
     if (texture == null) {
         std.debug.panic("Texture could not be created! SDL_Error: {s}\n", .{c.SDL_GetError()});
     }
     defer c.SDL_DestroyTexture(texture);
 
-    // Initialize allocator
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    // Initialize our software renderer
-    var software_renderer = try renderer.Renderer.init(allocator, SCREEN_WIDTH, SCREEN_HEIGHT);
+    // Initialize our software renderer with settings
+    var software_renderer = try renderer.Renderer.init(allocator, launch_settings.window.width, launch_settings.window.height);
     defer software_renderer.deinit(allocator);
+
+    // Update camera with settings
+    software_renderer.camera.fov_radians = math3d.degreesToRadians(launch_settings.rendering.fov_degrees);
+    software_renderer.camera.near_plane = launch_settings.rendering.near_plane;
+    software_renderer.camera.far_plane = launch_settings.rendering.far_plane;
 
     // Create a test mesh (cube)
     var cube_mesh = try renderer.Mesh.createCube(allocator);
@@ -72,19 +86,21 @@ pub fn main() !void {
         profiler.endSection("Input");
 
         profiler.beginSection("Clear");
-        software_renderer.clear(0x001122FF); // Dark blue background
+        software_renderer.clear(launch_settings.getClearColor());
         profiler.endSection("Clear");
 
         profiler.beginSection("Render");
         renderScene(&software_renderer, &cube_mesh, frame);
         profiler.endSection("Render");
 
-        profiler.beginSection("Overlay");
-        profiler.drawOverlay(&software_renderer.framebuffer, renderer.text);
-        profiler.endSection("Overlay");
+        if (launch_settings.performance.show_overlay) {
+            profiler.beginSection("Overlay");
+            profiler.drawOverlay(&software_renderer.framebuffer, renderer.text);
+            profiler.endSection("Overlay");
+        }
 
         profiler.beginSection("Upload");
-        _ = c.SDL_UpdateTexture(texture, null, software_renderer.framebuffer.pixels.ptr, SCREEN_WIDTH * @sizeOf(u32));
+        _ = c.SDL_UpdateTexture(texture, null, software_renderer.framebuffer.pixels.ptr, @as(i32, @intCast(launch_settings.window.width * @sizeOf(u32))));
         profiler.endSection("Upload");
 
         profiler.beginSection("Present");
@@ -96,8 +112,11 @@ pub fn main() !void {
         profiler.endFrame();
         frame += 1;
 
-        // Cap framerate
-        c.SDL_Delay(16); // ~60 FPS
+        // Frame rate limiting based on settings
+        const frame_delay = launch_settings.getFrameDelay();
+        if (frame_delay > 0) {
+            c.SDL_Delay(frame_delay);
+        }
     }
 }
 
