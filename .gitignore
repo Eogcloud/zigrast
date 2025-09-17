@@ -1,6 +1,6 @@
 # Zig build artifacts
 zig-out/
-zig-cache/
+.zig-cache/
 
 # IDE files
 .vscode/
@@ -23,10 +23,6 @@ Thumbs.db
 *.pdb
 *.ilk
 
-# SDL2 runtime libraries (if copied locally)
-SDL2.dll
-SDL2d.dll
-
 # Log files
 *.log
 
@@ -37,3 +33,6 @@ SDL2d.dll
 # Temporary files
 *.tmp
 *.temp
+
+# SDL3 runtime DLL will be in libs/ but exclude debug versions
+libs/SDL3/bin/*d.dll
