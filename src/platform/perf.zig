@@ -97,4 +97,42 @@ pub const FrameProfiler = struct {
         }
         std.debug.print("========================\n\n", .{});
     }
+
+    pub fn drawOverlay(self: *FrameProfiler, framebuffer: anytype, text_module: anytype) void {
+        const avg_frame = self.getAverageFrameTime();
+        const fps = self.getAverageFPS();
+
+        const overlay_x = 10;
+        var overlay_y: i32 = 10;
+        const line_height = 12;
+        const text_color = 0xFFFFFFFF; // White
+        const bg_color = 0x000000DD; // Semi-transparent black
+
+        // Draw background box
+        const box_width = 120;
+        const box_height = 50;
+        for (0..box_height) |dy| {
+            for (0..box_width) |dx| {
+                framebuffer.setPixel(overlay_x + @as(i32, @intCast(dx)), overlay_y + @as(i32, @intCast(dy)), bg_color);
+            }
+        }
+
+        // Draw FPS with label
+        text_module.drawString(framebuffer, "FPS", overlay_x + 5, overlay_y + 5, text_color);
+        const fps_rounded = @as(u32, @intFromFloat(@round(fps)));
+        text_module.drawNumber(framebuffer, fps_rounded, overlay_x + 35, overlay_y + 5, text_color);
+
+        overlay_y += line_height;
+
+        // Draw frame time with label
+        text_module.drawString(framebuffer, "MS", overlay_x + 5, overlay_y + 5, text_color);
+        text_module.drawFloat(framebuffer, @as(f32, @floatCast(avg_frame)), 1, overlay_x + 35, overlay_y + 5, text_color);
+
+        overlay_y += line_height;
+
+        // Draw render time with label
+        const render_time = self.getSectionTime("Render");
+        text_module.drawString(framebuffer, "REN", overlay_x + 5, overlay_y + 5, text_color);
+        text_module.drawFloat(framebuffer, @as(f32, @floatCast(render_time)), 1, overlay_x + 35, overlay_y + 5, text_color);
+    }
 };
