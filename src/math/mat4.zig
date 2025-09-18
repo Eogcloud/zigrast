@@ -1,6 +1,7 @@
 const std = @import("std");
 const math = std.math;
 const Vec3 = @import("vec3.zig").Vec3;
+const Vec4 = @import("vec4.zig").Vec4;
 
 pub const Mat4 = struct {
     // Row-major order: m[row][col]
@@ -153,6 +154,15 @@ pub const Mat4 = struct {
         for (0..4) |i| {
             std.debug.print("  [{d:.3} {d:.3} {d:.3} {d:.3}]\n", .{ self.m[i][0], self.m[i][1], self.m[i][2], self.m[i][3] });
         }
+    }
+
+    pub fn multiplyVec3W(self: Mat4, v: Vec3, w: f32) Vec4 {
+        return Vec4.init(
+            self.m[0][0] * v.x + self.m[0][1] * v.y + self.m[0][2] * v.z + self.m[0][3] * w,
+            self.m[1][0] * v.x + self.m[1][1] * v.y + self.m[1][2] * v.z + self.m[1][3] * w,
+            self.m[2][0] * v.x + self.m[2][1] * v.y + self.m[2][2] * v.z + self.m[2][3] * w,
+            self.m[3][0] * v.x + self.m[3][1] * v.y + self.m[3][2] * v.z + self.m[3][3] * w,
+        );
     }
 };
 

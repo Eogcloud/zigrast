@@ -1,3 +1,4 @@
+// platform/settings.zig
 const std = @import("std");
 
 pub const LaunchSettings = struct {
@@ -137,6 +138,8 @@ pub const LaunchSettings = struct {
     }
 
     pub fn getFrameDelay(self: LaunchSettings) u32 {
+        // If VSync is enabled, let the driver pace; no timer cap.
+        if (self.window.vsync) return 0;
         if (!self.performance.enable_frame_cap) return 0;
         return 1000 / self.performance.target_fps;
     }
