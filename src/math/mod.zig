@@ -1,7 +1,7 @@
 // Math module exports
 pub const Vec3 = @import("vec3.zig").Vec3;
-pub const Vec4: type = @import("vec4.zig").Vec4;
 pub const Mat4 = @import("mat4.zig").Mat4;
+pub const Vec4 = @import("mat4.zig").Vec4;
 
 // Common constants
 pub const PI = 3.14159265358979323846;
@@ -27,3 +27,6 @@ pub fn clamp(value: f32, min_val: f32, max_val: f32) f32 {
 pub fn lerp(a: f32, b: f32, t: f32) f32 {
     return a + (b - a) * t;
 }
+
+// Re-export utility from mat4
+pub const isFinite = @import("mat4.zig").isFinite;

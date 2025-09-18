@@ -1,7 +1,22 @@
 const std = @import("std");
 const math = std.math;
 const Vec3 = @import("vec3.zig").Vec3;
-const Vec4 = @import("vec4.zig").Vec4;
+
+pub const Vec4 = struct {
+    x: f32,
+    y: f32,
+    z: f32,
+    w: f32,
+
+    pub fn init(x: f32, y: f32, z: f32, w: f32) Vec4 {
+        return Vec4{ .x = x, .y = y, .z = z, .w = w };
+    }
+
+    pub fn toVec3(self: Vec4) Vec3 {
+        const inv_w = if (self.w != 0.0) 1.0 / self.w else 1.0;
+        return Vec3.init(self.x * inv_w, self.y * inv_w, self.z * inv_w);
+    }
+};
 
 pub const Mat4 = struct {
     // Row-major order: m[row][col]
@@ -149,22 +164,27 @@ pub const Mat4 = struct {
         };
     }
 
+    pub fn mulVec4(self: Mat4, v: Vec4) Vec4 {
+        return Vec4{
+            .x = self.m[0][0] * v.x + self.m[0][1] * v.y + self.m[0][2] * v.z + self.m[0][3] * v.w,
+            .y = self.m[1][0] * v.x + self.m[1][1] * v.y + self.m[1][2] * v.z + self.m[1][3] * v.w,
+            .z = self.m[2][0] * v.x + self.m[2][1] * v.y + self.m[2][2] * v.z + self.m[2][3] * v.w,
+            .w = self.m[3][0] * v.x + self.m[3][1] * v.y + self.m[3][2] * v.z + self.m[3][3] * v.w,
+        };
+    }
+
     pub fn print(self: Mat4) void {
         std.debug.print("Mat4:\n", .{});
         for (0..4) |i| {
             std.debug.print("  [{d:.3} {d:.3} {d:.3} {d:.3}]\n", .{ self.m[i][0], self.m[i][1], self.m[i][2], self.m[i][3] });
         }
     }
-
-    pub fn multiplyVec3W(self: Mat4, v: Vec3, w: f32) Vec4 {
-        return Vec4.init(
-            self.m[0][0] * v.x + self.m[0][1] * v.y + self.m[0][2] * v.z + self.m[0][3] * w,
-            self.m[1][0] * v.x + self.m[1][1] * v.y + self.m[1][2] * v.z + self.m[1][3] * w,
-            self.m[2][0] * v.x + self.m[2][1] * v.y + self.m[2][2] * v.z + self.m[2][3] * w,
-            self.m[3][0] * v.x + self.m[3][1] * v.y + self.m[3][2] * v.z + self.m[3][3] * w,
-        );
-    }
 };
+
+// Helper function to replace missing isFiniteReal
+pub fn isFinite(value: f32) bool {
+    return !math.isNan(value) and !math.isInf(value);
+}
 
 test "mat4 identity" {
     const identity = Mat4.IDENTITY;
@@ -184,4 +204,15 @@ test "mat4 translation" {
     try std.testing.expectApproxEqAbs(@as(f32, 6), transformed.x, 0.001);
     try std.testing.expectApproxEqAbs(@as(f32, 12), transformed.y, 0.001);
     try std.testing.expectApproxEqAbs(@as(f32, 18), transformed.z, 0.001);
+}
+
+test "mat4 vec4 multiplication" {
+    const identity = Mat4.IDENTITY;
+    const v = Vec4.init(1, 2, 3, 1);
+    const result = identity.mulVec4(v);
+
+    try std.testing.expectApproxEqAbs(@as(f32, 1), result.x, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 2), result.y, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 3), result.z, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 1), result.w, 0.001);
 }
